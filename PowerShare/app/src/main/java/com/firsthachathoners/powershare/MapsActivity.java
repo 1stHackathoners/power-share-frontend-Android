@@ -25,11 +25,19 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.BitmapDescriptor;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
+
+import java.util.List;
+
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 import static com.google.android.gms.location.LocationServices.getFusedLocationProviderClient;
 
@@ -42,8 +50,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private long FASTEST_INTERVAL = 2000; /* 2 sec */
     static int REQUEST_FINE_LOCATION = 0;
     public LatLng myLoc;
-    private MarkerOptions mOpts;
     private Marker marker;
+    private HTTPInterface httpInterface;
+    private boolean isStationFound = false;
+    Marker []sMarker;
+
+    public List<Result> stations;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -92,12 +104,45 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         String msg = "Updated Location: " +
                 Double.toString(location.getLatitude()) + "," +
                 Double.toString(location.getLongitude());
-        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
+        //Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
         // You can now create a LatLng Object for use with maps
         myLoc = new LatLng(location.getLatitude(), location.getLongitude());
         marker.setPosition( myLoc );
         marker.setTitle("Your Current Position.");
-        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(myLoc, 15.0f));
+        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(myLoc, 16.0f));
+
+        httpInterface = APIClient.getClient().create(HTTPInterface.class);
+        Call<JSONData> newCall = httpInterface.getAllRecords(myLoc.longitude, myLoc.latitude, 1000);
+
+        newCall.enqueue(new Callback<JSONData>() {
+            @Override
+            public void onResponse(Call<JSONData> call, Response<JSONData> response) {
+                stations = response.body().getResult();
+                if (!isStationFound && stations.size() > 0 ){
+                    fillMapWithStations(stations);
+                }
+            }
+
+            @Override
+            public void onFailure(Call<JSONData> call, Throwable t) {
+
+            }
+        });
+    }
+
+    private void fillMapWithStations(List<Result> stations) {
+        sMarker = new Marker[stations.size()];
+        Result temp;
+        //System.out.println("ATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATAT");
+        for ( int i = 0; i < stations.size(); i++ ){
+            temp = stations.get(i);
+            sMarker[i] = mMap.addMarker( new MarkerOptions().
+                    position(new LatLng(temp.getLocation().get(1), temp.getLocation().get(0))).title(temp.getName()).
+                            icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_CYAN)));
+            //System.out.println( temp.getName() + "-long:" + String.valueOf(temp.getLocation().get(0)) + "   lat:" + stations.get(i).getLocation().get(1) );
+
+        }
+        isStationFound = true;
     }
 
     @SuppressLint("MissingPermission")
@@ -160,8 +205,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             googleMap.setMyLocationEnabled(true);
         }
         myLoc = new LatLng(-34, 151);
-        mOpts = new MarkerOptions().position(myLoc).title("Marker in Sydney");
-        marker = mMap.addMarker( mOpts );
+        marker = mMap.addMarker( new MarkerOptions().position(myLoc).title("Initial position"));
         mMap.moveCamera(CameraUpdateFactory.newLatLng(myLoc));
     }
 }

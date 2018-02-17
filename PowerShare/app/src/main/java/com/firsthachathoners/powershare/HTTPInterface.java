@@ -13,7 +13,7 @@ import retrofit2.http.POST;
 
 public interface HTTPInterface {
     @FormUrlEncoded
-    @POST("/searchRecords")
-    Call<List<JSONData>> getAllRecords(@Field("longitude") float longitude, @Field("latitude") float latitude, @Field("range") int range);
+    @POST("/find/powerbank")
+    Call<JSONData> getAllRecords(@Field("longitude") double longitude, @Field("latitude") double latitude, @Field("range") int range);
 
 }
