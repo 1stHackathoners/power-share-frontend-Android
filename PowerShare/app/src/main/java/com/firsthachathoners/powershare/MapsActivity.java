@@ -2,6 +2,7 @@ package com.firsthachathoners.powershare;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.os.Looper;
@@ -31,10 +32,22 @@ import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.maps.DirectionsApi;
+import com.google.maps.DirectionsApiRequest;
+import com.google.maps.GeoApiContext;
+import com.google.maps.android.PolyUtil;
+import com.google.maps.errors.ApiException;
+import com.google.maps.model.DirectionsResult;
+import com.google.maps.model.TravelMode;
 
+import org.joda.time.DateTime;
+
+import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -50,6 +63,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private long UPDATE_INTERVAL = 10 * 1000;  /* 10 secs */
     private long FASTEST_INTERVAL = 4000; /* 4 sec */
     static int REQUEST_FINE_LOCATION = 0;
+    private String uName;
     public LatLng myLoc;
     private Marker marker;
     private HTTPInterface httpInterface;
@@ -58,8 +72,41 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     public List<Result> stations;
 
+    private DirectionsApiRequest dAR;
+
+    private GeoApiContext getGeoContext() {
+        GeoApiContext geoApiContext = new GeoApiContext();
+        return geoApiContext.setQueryRateLimit(3).setApiKey(getString(R.string.directionsApiKey)).
+                setConnectTimeout(1, TimeUnit.SECONDS).
+                setReadTimeout(1, TimeUnit.SECONDS).setWriteTimeout(1, TimeUnit.SECONDS);
+    }
+
+    public DirectionsResult prepareRequest( LatLng dest ) throws InterruptedException, ApiException, IOException {
+        DateTime now = new DateTime();
+        System.out.println("f;FASD;JF;KLfjdas;lkfjdas;lkjfasd;lkjAT--------------------------------------------");
+        dAR = DirectionsApi.newRequest(getGeoContext()).
+                mode(TravelMode.WALKING).origin( Double.toString(myLoc.latitude) + "," +
+                Double.toString(myLoc.longitude)  ).destination( Double.toString(dest.latitude)  +
+                "," + Double.toString(dest.longitude) ).departureTime(now);
+
+        return dAR.await();
+    }
+
+    private String getEndLocationTitle(DirectionsResult results){
+        return  "Time :"+ results.routes[0].legs[0].duration.humanReadable +
+                " Distance :" + results.routes[0].legs[0].distance.humanReadable;
+    }
+
+    private void addPolyline(DirectionsResult results, GoogleMap mMap) {
+        List<LatLng> decodedPath = PolyUtil.decode(results.routes[0].overviewPolyline.getEncodedPath());
+        mMap.addPolyline(new PolylineOptions().addAll(decodedPath));
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        Intent intent = getIntent();
+        uName = intent.getStringExtra(LoginActivity.EXTRA_MESSAGE);
+
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
@@ -107,9 +154,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 Double.toString(location.getLongitude());
         //Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
         // You can now create a LatLng Object for use with maps
+
         myLoc = new LatLng(location.getLatitude(), location.getLongitude());
         marker.setPosition( myLoc );
-        marker.setTitle("Your Current Position.");
+        marker.setTitle( uName + "'s Current Position.");
         mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(myLoc, 16.0f));
 
         httpInterface = APIClient.getClient().create(HTTPInterface.class);
@@ -121,6 +169,24 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 stations = response.body().getResult();
                 if (!isStationFound && stations.size() > 0 ){
                     fillMapWithStations(stations);
+                    try {
+                        LatLng destPost = new LatLng( stations.get(3).getLocation().get(1),
+                                stations.get(3).getLocation().get(0));
+                        DirectionsResult res = prepareRequest( destPost );
+                        System.out.println("addmarkesrto ya geciyooooooooooooooooooooooooOOOOOOOOOOOOOOooooooooooor");
+
+                        addMarkersToMap( res, mMap);
+
+                        addPolyline( res, mMap );
+                    } catch (InterruptedException e) {
+                        System.out.println("ATATATATATATATA");
+                        e.printStackTrace();
+                    } catch (ApiException e) {
+                        System.out.println("ATATATATATATATA");
+                        e.printStackTrace();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
                 }
             }
 
@@ -129,12 +195,34 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
             }
         });
+        /*
+        try {
+            LatLng destPost = new LatLng( stations.get(0).getLocation().get(1),
+                    stations.get(0).getLocation().get(1));
+            DirectionsResult res = prepareRequest( destPost );
+            getEndLocationTitle( res );
+            addPolyline( res, mMap );
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } catch (ApiException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }*/
+    }
+
+    private void addMarkersToMap(DirectionsResult results, GoogleMap mMap) {
+        System.out.println("addMarkersToMap------------------");
+        mMap.addMarker(new MarkerOptions().position(new LatLng(results.routes[0].legs[0].endLocation.lat,
+                results.routes[0].legs[0].endLocation.lng)).
+                icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_MAGENTA))
+                .title(results.routes[0].legs[0].startAddress).snippet(getEndLocationTitle(results)));
     }
 
     private void fillMapWithStations(List<Result> stations) {
         sMarker = new Marker[stations.size()];
         Result temp;
-        //System.out.println("ATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATAT");
+        System.out.println("ATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATAT");
         for ( int i = 0; i < stations.size(); i++ ){
             temp = stations.get(i);
             sMarker[i] = mMap.addMarker( new MarkerOptions().
