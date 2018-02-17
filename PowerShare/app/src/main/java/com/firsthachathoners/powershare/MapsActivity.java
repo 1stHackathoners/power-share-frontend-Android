@@ -25,6 +25,7 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.UiSettings;
 import com.google.android.gms.maps.model.BitmapDescriptor;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
@@ -42,12 +43,12 @@ import retrofit2.Response;
 import static com.google.android.gms.location.LocationServices.getFusedLocationProviderClient;
 
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback {
-
+    private  UiSettings uiSettings;
     private GoogleMap mMap;
     private LocationRequest mLocationRequest;
 
     private long UPDATE_INTERVAL = 10 * 1000;  /* 10 secs */
-    private long FASTEST_INTERVAL = 2000; /* 2 sec */
+    private long FASTEST_INTERVAL = 4000; /* 4 sec */
     static int REQUEST_FINE_LOCATION = 0;
     public LatLng myLoc;
     private Marker marker;
@@ -204,6 +205,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         if(checkPermissions()) {
             googleMap.setMyLocationEnabled(true);
         }
+        uiSettings = mMap.getUiSettings();
+        uiSettings.setMapToolbarEnabled(true);
         myLoc = new LatLng(-34, 151);
         marker = mMap.addMarker( new MarkerOptions().position(myLoc).title("Initial position"));
         mMap.moveCamera(CameraUpdateFactory.newLatLng(myLoc));
