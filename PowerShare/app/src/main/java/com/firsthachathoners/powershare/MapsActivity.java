@@ -2,9 +2,12 @@ package com.firsthachathoners.powershare;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.app.AlertDialog;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Location;
+import android.os.Build;
 import android.os.Looper;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
@@ -32,6 +35,7 @@ import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
@@ -55,7 +59,7 @@ import retrofit2.Response;
 
 import static com.google.android.gms.location.LocationServices.getFusedLocationProviderClient;
 
-public class MapsActivity extends FragmentActivity implements OnMapReadyCallback {
+public class MapsActivity extends FragmentActivity implements OnMapReadyCallback, GoogleMap.OnMarkerClickListener {
     private  UiSettings uiSettings;
     private GoogleMap mMap;
     private LocationRequest mLocationRequest;
@@ -64,10 +68,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private long FASTEST_INTERVAL = 4000; /* 4 sec */
     static int REQUEST_FINE_LOCATION = 0;
     private String uName;
-    public LatLng myLoc;
+    public LatLng myLoc, destPost;
     private Marker marker;
+    private Marker destMarker;
     private HTTPInterface httpInterface;
-    private boolean isStationFound = false;
+    private boolean isStationFound = false, isPathSet = false, isDestSet = false;
+    Polyline paths;
     Marker []sMarker;
 
     public List<Result> stations;
@@ -82,6 +88,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     public DirectionsResult prepareRequest( LatLng dest ) throws InterruptedException, ApiException, IOException {
+        if ( dest == null )
+            return null;
         DateTime now = new DateTime();
         System.out.println("f;FASD;JF;KLfjdas;lkfjdas;lkjfasd;lkjAT--------------------------------------------");
         dAR = DirectionsApi.newRequest(getGeoContext()).
@@ -99,7 +107,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     private void addPolyline(DirectionsResult results, GoogleMap mMap) {
         List<LatLng> decodedPath = PolyUtil.decode(results.routes[0].overviewPolyline.getEncodedPath());
-        mMap.addPolyline(new PolylineOptions().addAll(decodedPath));
+        paths = mMap.addPolyline(new PolylineOptions().addAll(decodedPath));
     }
 
     @Override
@@ -140,7 +148,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         getFusedLocationProviderClient(this).requestLocationUpdates(mLocationRequest, new LocationCallback() {
                     @Override
                     public void onLocationResult(LocationResult locationResult) {
-                        // do work here
                         onLocationChanged(locationResult.getLastLocation());
                     }
                 },
@@ -156,8 +163,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         // You can now create a LatLng Object for use with maps
 
         myLoc = new LatLng(location.getLatitude(), location.getLongitude());
-        marker.setPosition( myLoc );
-        marker.setTitle( uName + "'s Current Position.");
+        marker.remove();
+        marker = mMap.addMarker(new MarkerOptions()
+                .icon( BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_MAGENTA))
+                .title("Current Location").position(myLoc)
+                .snippet("Thinking of finding POWERBANK <3 ..."));
+
         mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(myLoc, 16.0f));
 
         httpInterface = APIClient.getClient().create(HTTPInterface.class);
@@ -166,18 +177,21 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         newCall.enqueue(new Callback<JSONData>() {
             @Override
             public void onResponse(Call<JSONData> call, Response<JSONData> response) {
+                DirectionsResult res;
                 stations = response.body().getResult();
-                if (!isStationFound && stations.size() > 0 ){
+                if (!isStationFound && stations.size() > 0 ) {
                     fillMapWithStations(stations);
+                }
+                if ( !isPathSet ) {
                     try {
-                        LatLng destPost = new LatLng( stations.get(3).getLocation().get(1),
-                                stations.get(3).getLocation().get(0));
-                        DirectionsResult res = prepareRequest( destPost );
-                        System.out.println("addmarkesrto ya geciyooooooooooooooooooooooooOOOOOOOOOOOOOOooooooooooor");
+                        if ( isDestSet ){
+                            res = prepareRequest(destPost);
 
-                        addMarkersToMap( res, mMap);
+                            addMarkersToMap(res, mMap);
 
-                        addPolyline( res, mMap );
+                            addPolyline(res, mMap);
+                            isPathSet = true;
+                        }
                     } catch (InterruptedException e) {
                         System.out.println("ATATATATATATATA");
                         e.printStackTrace();
@@ -186,6 +200,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                         e.printStackTrace();
                     } catch (IOException e) {
                         e.printStackTrace();
+                    }
+                }else{
+                    if ( isReachedDest() ){
+                        popAlertDialogIsReached();
                     }
                 }
             }
@@ -213,21 +231,20 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     private void addMarkersToMap(DirectionsResult results, GoogleMap mMap) {
         System.out.println("addMarkersToMap------------------");
-        mMap.addMarker(new MarkerOptions().position(new LatLng(results.routes[0].legs[0].endLocation.lat,
+        destMarker = mMap.addMarker(new MarkerOptions().position(new LatLng(results.routes[0].legs[0].endLocation.lat,
                 results.routes[0].legs[0].endLocation.lng)).
-                icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_MAGENTA))
+                icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE))
                 .title(results.routes[0].legs[0].startAddress).snippet(getEndLocationTitle(results)));
     }
 
     private void fillMapWithStations(List<Result> stations) {
         sMarker = new Marker[stations.size()];
         Result temp;
-        System.out.println("ATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATAT");
         for ( int i = 0; i < stations.size(); i++ ){
             temp = stations.get(i);
             sMarker[i] = mMap.addMarker( new MarkerOptions().
                     position(new LatLng(temp.getLocation().get(1), temp.getLocation().get(0))).title(temp.getName()).
-                            icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_CYAN)));
+                    icon( BitmapDescriptorFactory.fromResource(R.drawable.ic_power_settings_new_black_24dp)) );
             //System.out.println( temp.getName() + "-long:" + String.valueOf(temp.getLocation().get(0)) + "   lat:" + stations.get(i).getLocation().get(1) );
 
         }
@@ -288,7 +305,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
-
+        mMap.setOnMarkerClickListener(this);
         // Add a marker in Sydney and move the camera
         if(checkPermissions()) {
             googleMap.setMyLocationEnabled(true);
@@ -298,5 +315,76 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         myLoc = new LatLng(-34, 151);
         marker = mMap.addMarker( new MarkerOptions().position(myLoc).title("Initial position"));
         mMap.moveCamera(CameraUpdateFactory.newLatLng(myLoc));
+
+    }
+
+    public boolean isReachedDest(){
+        float[] gap = new float[1];
+        Location.distanceBetween( myLoc.latitude, myLoc.longitude, destPost.latitude, destPost.longitude, gap);
+        if ( gap[0] < 150 ){
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public boolean onMarkerClick(Marker marker) {
+        popAlertDialog(marker);
+        return true;
+    }
+
+    public void popAlertDialogIsReached( ){
+        AlertDialog.Builder builder;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            builder = new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert);
+        } else {
+            builder = new AlertDialog.Builder(this);
+        }
+        builder.setTitle("Have you reached your destination? " )
+                .setMessage("Will you leave powerbank?")
+                .setPositiveButton(android.R.string.yes, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                        destMarker.remove();
+                        isPathSet = false;
+                        isDestSet = false;
+                        paths.remove();
+                    }
+                })
+                .setNegativeButton(android.R.string.no, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                        return;
+                    }
+                })
+                .setIcon(android.R.drawable.ic_dialog_alert)
+                .show();
+    }
+
+    public void popAlertDialog(final Marker marker){
+        AlertDialog.Builder builder;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            builder = new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert);
+        } else {
+            builder = new AlertDialog.Builder(this);
+        }
+        builder.setTitle("Path to: " + marker.getTitle() )
+                .setMessage("Do you want to go this station?")
+                .setPositiveButton(android.R.string.yes, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                        if ( paths != null )
+                            paths.remove();
+                        if ( destMarker != null )
+                            destMarker.remove();
+                        destPost = new LatLng(marker.getPosition().latitude, marker.getPosition().longitude);
+                        isPathSet = false;
+                        isDestSet = true;
+                    }
+                })
+                .setNegativeButton(android.R.string.no, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                        return;
+                    }
+                })
+                .setIcon(android.R.drawable.ic_dialog_alert)
+                .show();
     }
 }
