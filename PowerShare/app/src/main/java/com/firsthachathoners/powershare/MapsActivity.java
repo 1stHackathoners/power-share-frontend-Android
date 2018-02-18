@@ -398,6 +398,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     public void onClick(DialogInterface dialog, int which) {
                         destMarker.remove();
                         isPathSet = false;
+                        destPost = null;
                         isDestSet = false;
                         isSesSt = false;
                         paths.remove();
