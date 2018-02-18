@@ -8,7 +8,9 @@ package com.firsthachathoners.powershare;
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
 
-public class Session {
+import java.io.Serializable;
+
+public class Session implements Serializable {
 
     @SerializedName("session_start")
     @Expose

@@ -85,12 +85,11 @@ public class LoginActivity extends AppCompatActivity {
         newCall.enqueue(new Callback<Example>() {
             @Override
             public void onResponse(Call<Example> call, Response<Example> response) {
-                System.out.println("merhaba----------------------------------");
                 Example info = new Example();
                 info.setCredit(response.body().getCredit());
                 info.setSession(response.body().getSession());
                 info.setUsername(response.body().getUsername());
-
+                info.printInfo();
                 intent.putExtra(EXTRA_MESSAGE, info);
                 startActivity(intent);
             }

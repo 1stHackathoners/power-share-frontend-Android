@@ -17,6 +17,15 @@ public interface HTTPInterface {
     Call<JSONData> getAllRecords(@Field("longitude") double longitude, @Field("latitude") double latitude, @Field("range") int range);
 
     @FormUrlEncoded
+    @POST("/find/chargeport")
+    Call<JSONData> getPSs(@Field("longitude") float longitude, @Field("latitude") float latitude, @Field("range") int range);
+
+    @FormUrlEncoded
     @POST("/user/info")
     Call<Example> getUserDetails(@Field("username") String usName);
+
+    @FormUrlEncoded
+    @POST("/user/sessionChange")
+    Call<SesObject> sessionChange(@Field("username") String usName, @Field("changedTo") boolean changedTo,
+                         @Field("psName") String psName);
 }
