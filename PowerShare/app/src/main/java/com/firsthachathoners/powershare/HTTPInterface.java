@@ -18,7 +18,7 @@ public interface HTTPInterface {
 
     @FormUrlEncoded
     @POST("/find/chargeport")
-    Call<JSONData> getPSs(@Field("longitude") float longitude, @Field("latitude") float latitude, @Field("range") int range);
+    Call<JSONData> getPSs(@Field("longitude") double longitude, @Field("latitude") double latitude, @Field("range") int range);
 
     @FormUrlEncoded
     @POST("/user/info")

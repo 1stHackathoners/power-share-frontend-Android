@@ -79,7 +79,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private Marker marker;
     private Marker destMarker;
     private HTTPInterface httpInterface;
-    private boolean isStationFound = false, isPathSet = false, isDestSet = false/*, isSesSt = false*/;
+    private boolean isStationFound = false, isPathSet = false, isDestSet = false, isSesSt = false;
     private TextView rangeTxt;
     Polyline paths;
     Marker []sMarker;
@@ -194,9 +194,48 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         System.out.println(zoomMX);
         setR(rangeTxt);
         Call<JSONData> newCall = httpInterface.getAllRecords(myLoc.longitude, myLoc.latitude, zoomMX * 1000);
-        //Call<JSONData> sesCall = httpInterface.getPSs((float) myLoc.longitude, (float)myLoc.latitude, zoomMX * 1000);
+        Call<JSONData> sesCall = httpInterface.getPSs(myLoc.longitude, myLoc.latitude, zoomMX * 1000);
 
-        newCall.enqueue(new Callback<JSONData>() {
+        if ( !isSesSt ) {
+            newCall.enqueue(new Callback<JSONData>() {
+                @Override
+                public void onResponse(Call<JSONData> call, Response<JSONData> response) {
+                    DirectionsResult res;
+                    stations = response.body().getResult();
+                    if (!isStationFound && stations.size() > 0) {
+                        fillMapWithStations(stations);
+                    }
+                    if (!isPathSet) {
+                        try {
+                            if (isDestSet) {
+                                res = prepareRequest(destPost);
+
+                                addMarkersToMap(res, mMap);
+
+                                addPolyline(res, mMap);
+                                isPathSet = true;
+                            }
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        } catch (ApiException e) {
+                            e.printStackTrace();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    } else {
+                        if (isReachedDest()) {
+                            popAlertDialogIsReached();
+                        }
+                    }
+                }
+
+                @Override
+                public void onFailure(Call<JSONData> call, Throwable t) {
+
+                }
+            });
+        }else{
+            sesCall.enqueue(new Callback<JSONData>() {
                 @Override
                 public void onResponse(Call<JSONData> call, Response<JSONData> response) {
                     DirectionsResult res;
@@ -234,6 +273,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 }
             });
 
+        }
     }
 
     public void setR( View view ){
@@ -359,7 +399,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                         destMarker.remove();
                         isPathSet = false;
                         isDestSet = false;
-                        //isSesSt = false;
+                        isSesSt = false;
                         paths.remove();
                     }
                 })
@@ -392,7 +432,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                             destPost = new LatLng(tapMarker.getPosition().latitude, tapMarker.getPosition().longitude);
                             isPathSet = false;
                             isDestSet = true;
-                            //isSesSt = true;
+                            isSesSt = true;
                         }
                     })
                     .setNegativeButton(android.R.string.no, new DialogInterface.OnClickListener() {
