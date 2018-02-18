@@ -16,4 +16,7 @@ public interface HTTPInterface {
     @POST("/find/powerbank")
     Call<JSONData> getAllRecords(@Field("longitude") double longitude, @Field("latitude") double latitude, @Field("range") int range);
 
+    @FormUrlEncoded
+    @POST("/user/info")
+    Call<Example> getUserDetails(@Field("username") String usName);
 }

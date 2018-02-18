@@ -15,7 +15,6 @@ import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
 import android.support.v4.content.ContextCompat;
 import android.util.Log;
-import android.widget.Toast;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
@@ -24,13 +23,12 @@ import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.LocationSettingsRequest;
 import com.google.android.gms.location.SettingsClient;
-import com.google.android.gms.maps.CameraUpdate;
+
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.UiSettings;
-import com.google.android.gms.maps.model.BitmapDescriptor;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
@@ -60,13 +58,16 @@ import retrofit2.Response;
 import static com.google.android.gms.location.LocationServices.getFusedLocationProviderClient;
 
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback, GoogleMap.OnMarkerClickListener {
+
+    public static final String EXTRA_MESSAGE = "com.firsthachathoners.powershare.MESSAGE";
     private  UiSettings uiSettings;
     private GoogleMap mMap;
     private LocationRequest mLocationRequest;
 
     private long UPDATE_INTERVAL = 10 * 1000;  /* 10 secs */
     private long FASTEST_INTERVAL = 4000; /* 4 sec */
-    static int REQUEST_FINE_LOCATION = 0;
+    static int REQUEST_FINE_LOCATION = 0, zoomMX = 1;
+    Example userInfo;
     private String uName;
     public LatLng myLoc, destPost;
     private Marker marker;
@@ -113,7 +114,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         Intent intent = getIntent();
-        uName = intent.getStringExtra(LoginActivity.EXTRA_MESSAGE);
+        userInfo = (Example) intent.getSerializableExtra(EXTRA_MESSAGE);
+
+        userInfo.printInfo();
 
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
@@ -172,7 +175,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(myLoc, 16.0f));
 
         httpInterface = APIClient.getClient().create(HTTPInterface.class);
-        Call<JSONData> newCall = httpInterface.getAllRecords(myLoc.longitude, myLoc.latitude, 1000);
+        Call<JSONData> newCall = httpInterface.getAllRecords(myLoc.longitude, myLoc.latitude, zoomMX * 1000);
 
         newCall.enqueue(new Callback<JSONData>() {
             @Override
@@ -193,10 +196,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                             isPathSet = true;
                         }
                     } catch (InterruptedException e) {
-                        System.out.println("ATATATATATATATA");
                         e.printStackTrace();
                     } catch (ApiException e) {
-                        System.out.println("ATATATATATATATA");
                         e.printStackTrace();
                     } catch (IOException e) {
                         e.printStackTrace();
@@ -213,24 +214,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
             }
         });
-        /*
-        try {
-            LatLng destPost = new LatLng( stations.get(0).getLocation().get(1),
-                    stations.get(0).getLocation().get(1));
-            DirectionsResult res = prepareRequest( destPost );
-            getEndLocationTitle( res );
-            addPolyline( res, mMap );
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        } catch (ApiException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }*/
     }
 
     private void addMarkersToMap(DirectionsResult results, GoogleMap mMap) {
-        System.out.println("addMarkersToMap------------------");
         destMarker = mMap.addMarker(new MarkerOptions().position(new LatLng(results.routes[0].legs[0].endLocation.lat,
                 results.routes[0].legs[0].endLocation.lng)).
                 icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE))
@@ -245,8 +231,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             sMarker[i] = mMap.addMarker( new MarkerOptions().
                     position(new LatLng(temp.getLocation().get(1), temp.getLocation().get(0))).title(temp.getName()).
                     icon( BitmapDescriptorFactory.fromResource(R.drawable.ic_power_settings_new_black_24dp)) );
-            //System.out.println( temp.getName() + "-long:" + String.valueOf(temp.getLocation().get(0)) + "   lat:" + stations.get(i).getLocation().get(1) );
-
         }
         isStationFound = true;
     }
